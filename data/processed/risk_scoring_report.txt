@@ -1,0 +1,34 @@
+===== RISK SCORING REPORT =====
+Wallets analyzed: 4085
+
+RISK CATEGORY SUMMARY:
+Critical Review: 59 (1.44%)
+High Review: 660 (16.16%)
+Moderate Review: 868 (21.25%)
+Low Review: 2498 (61.15%)
+
+BEHAVIOURAL THRESHOLDS:
+outgoing_tx_count: 3.0
+total_eth_sent: 0.1663588647385821
+total_eth_received: 0.08244975018353531
+total_counterparties: 3.0
+zero_value_outgoing_count: 2.0
+average_time_gap_seconds: 12.0
+positive_gap_wallets: 1127
+zero_gap_wallets: 76
+
+TIME GAP VALIDATION:
+Wallets with positive average gaps: 1127
+Wallets with zero average gaps: 76
+
+SCORING METHOD:
+70% Isolation Forest anomaly score
+30% behavioural indicator score
+
+Output file: C:\Users\REA\Desktop\DeFi-Fraud-Detection\data\processed\wallet_risk_scores.csv
+
+LIMITATIONS:
+Risk score is a review-priority score, not fraud probability.
+Thresholds are calculated from the current dataset.
+No confirmed fraud labels are available.
+Unusual behaviour does not establish fraudulent activity.

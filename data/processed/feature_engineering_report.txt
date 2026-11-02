@@ -1,0 +1,56 @@
+===== FEATURE ENGINEERING REPORT =====
+Input transactions: 4814
+Wallets identified: 4085
+Features generated: 20
+
+Output file: C:\Users\REA\Desktop\DeFi-Fraud-Detection\data\processed\wallet_features.csv
+
+Generated features:
+- outgoing_tx_count
+- total_eth_sent
+- average_eth_sent
+- maximum_eth_sent
+- unique_outgoing_counterparties
+- zero_value_outgoing_count
+- incoming_tx_count
+- total_eth_received
+- average_eth_received
+- maximum_eth_received
+- unique_incoming_counterparties
+- zero_value_incoming_count
+- wallet_transaction_count
+- first_transaction_time
+- last_transaction_time
+- average_time_gap_seconds
+- minimum_time_gap_seconds
+- active_duration_seconds
+- net_eth_flow
+- total_counterparties
+
+Missing values per feature:
+wallet_address                       0
+outgoing_tx_count                    0
+total_eth_sent                       0
+average_eth_sent                     0
+maximum_eth_sent                     0
+unique_outgoing_counterparties       0
+zero_value_outgoing_count            0
+incoming_tx_count                    0
+total_eth_received                   0
+average_eth_received                 0
+maximum_eth_received                 0
+unique_incoming_counterparties       0
+zero_value_incoming_count            0
+wallet_transaction_count             0
+first_transaction_time               0
+last_transaction_time                0
+average_time_gap_seconds          2882
+minimum_time_gap_seconds          2882
+active_duration_seconds              0
+net_eth_flow                         0
+total_counterparties                 0
+
+Note:
+Time-based features describe only the available dataset period.
+Missing time gaps are expected for wallets with one transaction.
+Anomaly scores must not be interpreted as confirmed fraud.

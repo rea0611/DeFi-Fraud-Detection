@@ -1,0 +1,18 @@
+===== ISOLATION FOREST REPORT =====
+Transactions represented: 4085
+Wallets analyzed: 4085
+Numerical features used: 18
+
+ANOMALY CATEGORY SUMMARY
+High Anomaly: 204
+Moderate Anomaly: 613
+Lower Anomaly: 3268
+
+Prediction file: C:\Users\REA\Desktop\DeFi-Fraud-Detection\data\processed\wallet_anomaly_predictions.csv
+Saved model: C:\Users\REA\Desktop\DeFi-Fraud-Detection\models\isolation_forest_model.joblib
+
+IMPORTANT LIMITATIONS:
+Anomaly scores are relative rankings, not fraud probabilities.
+No confirmed fraud labels are available for validation.
+The dataset covers a short observation period.
+High anomaly does not establish fraudulent activity.

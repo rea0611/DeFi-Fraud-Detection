@@ -49,4 +49,6 @@ htmlcov/
 
 # Generated data files
 data/raw/*.csv
+!data/raw/raw_transactions.csv
+
 data/processed/*.csv

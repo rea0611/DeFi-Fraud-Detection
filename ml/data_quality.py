@@ -10,15 +10,22 @@ project_folder = Path(__file__).resolve().parent.parent
 
 file_path = (
     project_folder / "data" / "raw" /
-    "ethereum_transactions.csv"
+    "raw_transactions.csv"
 )
 
 report_folder = project_folder / "data" / "processed"
 report_folder.mkdir(parents=True, exist_ok=True)
 
+report_file = report_folder / "data_quality_report.txt"
+
 # =====================================
 # 2. LOAD DATASET
 # =====================================
+
+if not file_path.exists():
+    raise FileNotFoundError(
+        f"Dataset not found: {file_path}"
+    )
 
 df = pd.read_csv(file_path)
 
@@ -27,23 +34,23 @@ if df.empty:
 
 print("\n===== DEFI DATA QUALITY ANALYSIS =====")
 
-# Store report lines
 report = []
 
 def log(message=""):
+    message = str(message)
     print(message)
-    report.append(str(message))
+    report.append(message)
 
 # =====================================
 # 3. DATASET OVERVIEW
 # =====================================
 
 log("\n1. DATASET OVERVIEW")
-
+log(f"Dataset: {file_path.name}")
 log(f"Total rows: {len(df)}")
 log(f"Total columns: {len(df.columns)}")
 
-log("\nColumns:")
+log("\nColumn names:")
 log(str(list(df.columns)))
 
 # =====================================
@@ -51,7 +58,6 @@ log(str(list(df.columns)))
 # =====================================
 
 log("\n2. DATA TYPES")
-
 log(str(df.dtypes))
 
 # =====================================
@@ -63,15 +69,15 @@ log("\n3. MISSING VALUES")
 missing = df.isnull().sum()
 
 log(str(missing))
+log(f"Total missing cells: {df.isnull().sum().sum()}")
 
-# A missing receiver can indicate contract creation.
 if "to" in df.columns:
     log(
-        "\nMissing receiver addresses: "
+        f"Missing receiver addresses: "
         f"{df['to'].isnull().sum()}"
     )
     log(
-        "Note: Missing 'to' can represent "
+        "Note: Missing 'to' addresses may represent "
         "contract creation transactions."
     )
 
@@ -83,7 +89,9 @@ log("\n4. DUPLICATE TRANSACTIONS")
 
 if "hash" in df.columns:
     duplicates = df["hash"].duplicated().sum()
-    log(f"Duplicate hashes: {duplicates}")
+    log(f"Duplicate transaction hashes: {duplicates}")
+else:
+    log("Transaction hash column not found.")
 
 # =====================================
 # 7. TRANSACTION VALUE ANALYSIS
@@ -98,9 +106,21 @@ if "value_eth" in df.columns:
     )
 
     log(str(values.describe()))
-
     log(f"Invalid value entries: {values.isnull().sum()}")
     log(f"Negative values: {(values < 0).sum()}")
+
+elif "value" in df.columns:
+
+    values = pd.to_numeric(
+        df["value"], errors="coerce"
+    )
+
+    log("Using value column for analysis.")
+    log(str(values.describe()))
+    log(f"Invalid value entries: {values.isnull().sum()}")
+
+else:
+    log("No recognised transaction value column found.")
 
 # =====================================
 # 8. GAS ANALYSIS
@@ -108,22 +128,35 @@ if "value_eth" in df.columns:
 
 log("\n6. GAS ANALYSIS")
 
-if "gas_limit" in df.columns:
+gas_column = None
+
+for column in ["gas_limit", "gas", "gas_used"]:
+    if column in df.columns:
+        gas_column = column
+        break
+
+if gas_column:
 
     gas = pd.to_numeric(
-        df["gas_limit"], errors="coerce"
+        df[gas_column], errors="coerce"
     )
 
+    log(f"Analysing column: {gas_column}")
     log(str(gas.describe()))
 
+else:
+    log("No recognised gas column found.")
+
 # =====================================
-# 9. WALLET FREQUENCY
+# 9. SENDER WALLET FREQUENCY
 # =====================================
 
 log("\n7. TOP SENDER WALLETS")
 
 if "from" in df.columns:
     log(str(df["from"].value_counts().head(10)))
+else:
+    log("Sender column not found.")
 
 # =====================================
 # 10. TIMESTAMP ANALYSIS
@@ -135,45 +168,38 @@ if "timestamp" in df.columns:
 
     timestamps = pd.to_datetime(
         df["timestamp"],
+        unit="s",
         errors="coerce",
         utc=True
     )
 
-    log(f"Earliest: {timestamps.min()}")
-    log(f"Latest: {timestamps.max()}")
+    log(f"Earliest timestamp: {timestamps.min()}")
+    log(f"Latest timestamp: {timestamps.max()}")
+    log(f"Invalid timestamps: {timestamps.isnull().sum()}")
 
-    log(
-        f"Invalid timestamps: {timestamps.isnull().sum()}"
-    )
+else:
+    log("Timestamp column not found.")
 
 # =====================================
-# 11. UNIQUE WALLETS
+# 11. UNIQUE WALLET ANALYSIS
 # =====================================
 
 log("\n9. WALLET ANALYSIS")
 
 if "from" in df.columns:
-    log(
-        f"Unique senders: {df['from'].nunique()}"
-    )
+    log(f"Unique senders: {df['from'].nunique()}")
 
 if "to" in df.columns:
-    log(
-        f"Unique receivers: {df['to'].nunique()}"
-    )
+    log(f"Unique receivers: {df['to'].nunique()}")
 
 # =====================================
 # 12. SAVE REPORT
 # =====================================
-
-report_file = (
-    report_folder / "data_quality_report.txt"
-)
 
 report_file.write_text(
     "\n".join(report),
     encoding="utf-8"
 )
 
-log("\n===== ANALYSIS COMPLETED =====")
-print("\nReport saved at:", report_file)
+print("\n===== ANALYSIS COMPLETED =====")
+print(f"\nReport saved at: {report_file}")

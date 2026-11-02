@@ -1,142 +1,359 @@
 
-import pandas as pd
 from pathlib import Path
 
-# =====================================
-# 1. LOAD CLEANED DATA
-# =====================================
+import pandas as pd
 
-project_folder = Path(__file__).resolve().parent.parent
 
-input_file = (
-    project_folder / "data" / "processed" /
-    "cleaned_transactions.csv"
+# ==================================================
+# 1. PROJECT PATHS
+# ==================================================
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+INPUT_FILE = (
+    BASE_DIR / "data" / "processed" / "cleaned_transactions.csv"
 )
 
-output_folder = project_folder / "data" / "processed"
-output_folder.mkdir(parents=True, exist_ok=True)
+OUTPUT_DIR = BASE_DIR / "data" / "processed"
 
-df = pd.read_csv(input_file)
+OUTPUT_FILE = OUTPUT_DIR / "wallet_features.csv"
 
-df["timestamp"] = pd.to_datetime(
-    df["timestamp"], utc=True
-)
+REPORT_FILE = OUTPUT_DIR / "feature_engineering_report.txt"
 
-# =====================================
-# 2. CREATE WALLET ACTIVITY RECORDS
-# =====================================
 
-activity = []
+# ==================================================
+# 2. LOAD CLEANED TRANSACTION DATA
+# ==================================================
 
-for _, tx in df.iterrows():
+def load_data():
 
-    # Sender's outgoing activity
-    activity.append({
-        "wallet": tx["from"],
-        "counterparty": tx["to"],
-        "direction": "outgoing",
-        "value_eth": tx["value_eth"],
-        "timestamp": tx["timestamp"],
-        "hash": tx["hash"]
-    })
+    if not INPUT_FILE.exists():
+        raise FileNotFoundError(
+            f"Cleaned dataset not found: {INPUT_FILE}"
+        )
 
-    # Receiver's incoming activity
-    if pd.notna(tx["to"]) and str(tx["to"]).strip():
+    df = pd.read_csv(INPUT_FILE)
 
-        activity.append({
-            "wallet": tx["to"],
-            "counterparty": tx["from"],
-            "direction": "incoming",
-            "value_eth": tx["value_eth"],
-            "timestamp": tx["timestamp"],
-            "hash": tx["hash"]
-        })
+    required_columns = [
+        "hash",
+        "from",
+        "to",
+        "value_wei",
+        "value_eth",
+        "gas",
+        "block",
+        "timestamp"
+    ]
 
-activity_df = pd.DataFrame(activity)
+    missing_columns = [
+        col for col in required_columns
+        if col not in df.columns
+    ]
 
-# =====================================
-# 3. CALCULATE WALLET FEATURES
-# =====================================
+    if missing_columns:
+        raise ValueError(
+            f"Missing columns: {missing_columns}"
+        )
 
-features = []
+    # Convert numeric transaction fields
+    for col in ["value_eth", "gas", "block"]:
+        df[col] = pd.to_numeric(
+            df[col],
+            errors="coerce"
+        )
 
-for wallet, group in activity_df.groupby("wallet"):
-
-    group = group.sort_values("timestamp")
-
-    time_gaps = (
-        group["timestamp"].diff().dt.total_seconds()
+    # Timestamp is already in datetime text format.
+    # Do NOT convert it to Unix seconds again.
+    df["datetime"] = pd.to_datetime(
+        df["timestamp"],
+        errors="coerce",
+        utc=True
     )
 
-    outgoing = group[
-        group["direction"] == "outgoing"
+    # Remove only records missing essential fields.
+    # Missing receiver addresses are retained.
+    df = df.dropna(
+        subset=["hash", "from", "value_eth", "datetime"]
+    )
+
+    print(f"Transactions loaded: {len(df)}")
+
+    return df
+
+
+# ==================================================
+# 3. OUTGOING WALLET FEATURES
+# ==================================================
+
+def outgoing_features(df):
+
+    outgoing = df.groupby("from").agg(
+        outgoing_tx_count=("hash", "nunique"),
+        total_eth_sent=("value_eth", "sum"),
+        average_eth_sent=("value_eth", "mean"),
+        maximum_eth_sent=("value_eth", "max"),
+        unique_outgoing_counterparties=("to", "nunique")
+    )
+
+    zero_outgoing = (
+        df.assign(
+            is_zero=df["value_eth"].eq(0)
+        )
+        .groupby("from")["is_zero"]
+        .sum()
+        .rename("zero_value_outgoing_count")
+    )
+
+    outgoing = outgoing.join(zero_outgoing)
+
+    return outgoing
+
+
+# ==================================================
+# 4. INCOMING WALLET FEATURES
+# ==================================================
+
+def incoming_features(df):
+
+    incoming_data = df.dropna(
+        subset=["to"]
+    ).copy()
+
+    incoming = incoming_data.groupby("to").agg(
+        incoming_tx_count=("hash", "nunique"),
+        total_eth_received=("value_eth", "sum"),
+        average_eth_received=("value_eth", "mean"),
+        maximum_eth_received=("value_eth", "max"),
+        unique_incoming_counterparties=("from", "nunique")
+    )
+
+    zero_incoming = (
+        incoming_data.assign(
+            is_zero=incoming_data["value_eth"].eq(0)
+        )
+        .groupby("to")["is_zero"]
+        .sum()
+        .rename("zero_value_incoming_count")
+    )
+
+    incoming = incoming.join(zero_incoming)
+
+    return incoming
+
+
+# ==================================================
+# 5. WALLET ACTIVITY FEATURES
+# ==================================================
+
+def activity_features(df):
+
+    sent = df[
+        ["hash", "from", "datetime"]
+    ].rename(
+        columns={"from": "wallet"}
+    )
+
+    received = (
+        df.dropna(subset=["to"])[
+            ["hash", "to", "datetime"]
+        ]
+        .rename(columns={"to": "wallet"})
+    )
+
+    activity = pd.concat(
+        [sent, received],
+        ignore_index=True
+    )
+
+    # Prevent self-transactions from being counted twice
+    activity = activity.drop_duplicates(
+        subset=["wallet", "hash"]
+    )
+
+    activity = activity.sort_values(
+        ["wallet", "datetime"]
+    )
+
+    # Calculate time difference between wallet transactions
+    activity["time_gap_seconds"] = (
+        activity.groupby("wallet")["datetime"]
+        .diff()
+        .dt.total_seconds()
+    )
+
+    activity_summary = activity.groupby("wallet").agg(
+        wallet_transaction_count=("hash", "nunique"),
+        first_transaction_time=("datetime", "min"),
+        last_transaction_time=("datetime", "max"),
+        average_time_gap_seconds=(
+            "time_gap_seconds", "mean"
+        ),
+        minimum_time_gap_seconds=(
+            "time_gap_seconds", "min"
+        )
+    )
+
+    activity_summary["active_duration_seconds"] = (
+        activity_summary["last_transaction_time"]
+        - activity_summary["first_transaction_time"]
+    ).dt.total_seconds()
+
+    return activity_summary
+
+
+# ==================================================
+# 6. COMBINE ALL FEATURES
+# ==================================================
+
+def create_wallet_features(df):
+
+    outgoing = outgoing_features(df)
+
+    incoming = incoming_features(df)
+
+    activity = activity_features(df)
+
+    all_wallets = (
+        set(outgoing.index)
+        | set(incoming.index)
+        | set(activity.index)
+    )
+
+    features = pd.DataFrame(
+        index=sorted(all_wallets)
+    )
+
+    features.index.name = "wallet_address"
+
+    features = features.join(outgoing)
+    features = features.join(incoming)
+    features = features.join(activity)
+
+    # Fill missing transaction counts with zero
+    count_columns = [
+        "outgoing_tx_count",
+        "incoming_tx_count",
+        "unique_outgoing_counterparties",
+        "unique_incoming_counterparties",
+        "zero_value_outgoing_count",
+        "zero_value_incoming_count",
+        "wallet_transaction_count"
     ]
 
-    incoming = group[
-        group["direction"] == "incoming"
+    features[count_columns] = (
+        features[count_columns]
+        .fillna(0)
+        .astype(int)
+    )
+
+    # Fill missing ETH amounts with zero
+    amount_columns = [
+        "total_eth_sent",
+        "average_eth_sent",
+        "maximum_eth_sent",
+        "total_eth_received",
+        "average_eth_received",
+        "maximum_eth_received"
     ]
 
-    valid_counterparties = group[
-        group["counterparty"].notna()
-    ]["counterparty"]
+    features[amount_columns] = (
+        features[amount_columns].fillna(0)
+    )
 
-    features.append({
+    # Net flow: received ETH minus sent ETH
+    features["net_eth_flow"] = (
+        features["total_eth_received"]
+        - features["total_eth_sent"]
+    )
 
-        "wallet": wallet,
+    # Total unique counterparties
+    features["total_counterparties"] = (
+        features["unique_outgoing_counterparties"]
+        + features["unique_incoming_counterparties"]
+    )
 
-        "transaction_count": group["hash"].nunique(),
+    features = features.reset_index()
 
-        "outgoing_count": len(outgoing),
+    return features
 
-        "incoming_count": len(incoming),
 
-        "total_outgoing_eth": outgoing["value_eth"].sum(),
+# ==================================================
+# 7. SAVE FEATURES AND REPORT
+# ==================================================
 
-        "total_incoming_eth": incoming["value_eth"].sum(),
+def save_results(features, df):
 
-        "average_transaction_value": group[
-            "value_eth"
-        ].mean(),
+    OUTPUT_DIR.mkdir(
+        parents=True,
+        exist_ok=True
+    )
 
-        "unique_counterparties":
-            valid_counterparties.nunique(),
+    features.to_csv(
+        OUTPUT_FILE,
+        index=False
+    )
 
-        "average_time_gap_seconds":
-            time_gaps.mean(),
+    report_lines = [
+        "===== FEATURE ENGINEERING REPORT =====",
+        f"Input transactions: {len(df)}",
+        f"Wallets identified: {len(features)}",
+        f"Features generated: {len(features.columns) - 1}",
+        "",
+        f"Output file: {OUTPUT_FILE}",
+        "",
+        "Generated features:"
+    ]
 
-        "rapid_transfer_count":
-            (time_gaps <= 60).sum()
+    report_lines.extend(
+        [
+            f"- {col}"
+            for col in features.columns
+            if col != "wallet_address"
+        ]
+    )
 
-    })
+    report_lines.extend([
+        "",
+        "Missing values per feature:",
+        features.isnull().sum().to_string(),
+        "",
+        "Note:",
+        "Time-based features describe only the available dataset period.",
+        "Missing time gaps are expected for wallets with one transaction.",
+        "Anomaly scores must not be interpreted as confirmed fraud."
+    ])
 
-# =====================================
-# 4. CREATE FEATURE DATAFRAME
-# =====================================
+    REPORT_FILE.write_text(
+        "\n".join(report_lines),
+        encoding="utf-8"
+    )
 
-wallet_features = pd.DataFrame(features)
+    print("\n===== FEATURE ENGINEERING COMPLETED =====")
+    print(f"Input transactions: {len(df)}")
+    print(f"Wallets processed: {len(features)}")
+    print(f"Features generated: {len(features.columns) - 1}")
+    print(f"Dataset saved: {OUTPUT_FILE}")
+    print(f"Report saved: {REPORT_FILE}")
 
-# =====================================
-# 5. HANDLE MISSING VALUES
-# =====================================
 
-wallet_features = wallet_features.fillna(0)
+# ==================================================
+# 8. MAIN FUNCTION
+# ==================================================
 
-# =====================================
-# 6. SAVE WALLET FEATURES
-# =====================================
+def main():
 
-output_file = output_folder / "wallet_features.csv"
+    print("Loading cleaned transaction dataset...")
 
-wallet_features.to_csv(output_file, index=False)
+    df = load_data()
 
-print("\n===== FEATURE ENGINEERING REPORT =====")
+    print("Generating outgoing wallet features...")
+    print("Generating incoming wallet features...")
+    print("Generating wallet activity features...")
 
-print("Total wallets:", len(wallet_features))
+    features = create_wallet_features(df)
 
-print("\nWallet Features:")
-print(wallet_features.head(10))
+    save_results(features, df)
 
-print("\nSaved successfully at:")
-print(output_file)
 
-print("\nFEATURE ENGINEERING COMPLETED!")
+if __name__ == "__main__":
+    main()
