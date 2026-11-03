@@ -113,3 +113,12 @@ data/processed/*.csv
 !data/processed/wallet_features.csv
 !data/processed/wallet_anomaly_predictions.csv
 !data/processed/wallet_risk_scores.csv
+
+
+# Node.js
+node_modules/
+frontend/node_modules/
+backend/backend/node_modules/
+
+# Frontend build
+frontend/dist/
