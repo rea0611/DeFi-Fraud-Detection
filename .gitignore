@@ -1,0 +1,115 @@
+
+# ==========================================
+# ENVIRONMENT VARIABLES AND SECRETS
+# ==========================================
+
+.env
+.env.*
+!.env.example
+
+
+# ==========================================
+# PYTHON VIRTUAL ENVIRONMENT
+# ==========================================
+
+venv/
+.venv/
+env/
+
+
+# ==========================================
+# PYTHON CACHE FILES
+# ==========================================
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+
+# ==========================================
+# PYTHON BUILD FILES
+# ==========================================
+
+build/
+dist/
+*.egg-info/
+
+
+# ==========================================
+# JUPYTER NOTEBOOK CHECKPOINTS
+# ==========================================
+
+.ipynb_checkpoints/
+
+
+# ==========================================
+# IDE SETTINGS
+# ==========================================
+
+.vscode/
+.idea/
+
+
+# ==========================================
+# OPERATING SYSTEM FILES
+# ==========================================
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+
+# ==========================================
+# LOGS
+# ==========================================
+
+*.log
+
+
+# ==========================================
+# TEMPORARY FILES
+# ==========================================
+
+*.tmp
+*.bak
+
+
+# ==========================================
+# TEST AND COVERAGE FILES
+# ==========================================
+
+.pytest_cache/
+.coverage
+htmlcov/
+
+
+# ==========================================
+# MODEL FILES
+# Keep generated models out of Git
+# ==========================================
+
+*.pkl
+*.joblib
+
+
+# ==========================================
+# RAW DATA
+# ==========================================
+
+data/raw/*.csv
+
+# Allow the main raw transaction dataset
+!data/raw/raw_transactions.csv
+
+
+# ==========================================
+# PROCESSED DATA
+# ==========================================
+
+# Ignore processed CSV files by default
+data/processed/*.csv
+
+# Allow required ML outputs for team integration
+!data/processed/wallet_features.csv
+!data/processed/wallet_anomaly_predictions.csv
+!data/processed/wallet_risk_scores.csv

@@ -1,0 +1,32 @@
+===== DEFI PREPROCESSING REPORT =====
+Original records: 4814
+Cleaned records: 4814
+Total records removed: 0
+Invalid identifiers removed: 0
+Duplicate transactions removed: 0
+Invalid numeric records removed: 0
+Negative-value records removed: 0
+Invalid timestamps removed: 0
+Wei/ETH consistency mismatches: 0
+
+Remaining missing values:
+hash         0
+from         0
+to           4
+value_wei    0
+value_eth    0
+gas          0
+block        0
+timestamp    0
+dtype: int64
+
+Zero-value transactions: 3322
+Non-zero transactions: 1492
+Unique senders: 2923
+Unique receivers: 1522
+Missing receivers retained: 4
+
+Earliest timestamp: 2026-11-02 07:46:47+00:00
+Latest timestamp: 2026-11-02 07:50:35+00:00
+
+Cleaned dataset: C:\Users\REA\Desktop\DeFi-Fraud-Detection\data\processed\cleaned_transactions.csv

@@ -1,0 +1,9 @@
+DEFI TRANSACTION EDA SUMMARY
+Total transactions: 4814
+Unique senders: 2923
+Unique receivers: 1522
+Zero-value transactions: 3322
+Non-zero transactions: 1492
+Average ETH value: 0.34778542343232227
+Maximum ETH value: 825.0000569897559
+Invalid timestamps: 0
